@@ -1,0 +1,451 @@
+<?php
+namespace App\Http\Controllers\Reporting;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+use App\Models\Company\Department;
+use App\Models\MIS\ENDBCARDStatus;
+
+use App\Models\Employee\Employee_attribute;
+use App\Models\Employee\Employee_details;
+use App\Models\Logs\ShiftingLogs;
+
+use App\Models\MIS\MainMisReport;
+use App\Models\TeamTarget\Team_Leader;
+
+use Session;
+
+
+class DashBoardReportingController extends Controller
+{
+    
+      public function loadTLData(Request $request)
+	  {
+		  $deptId =  $request->dept_id;
+		 
+		  
+		  $tL_details = Employee_details::where("job_role",'Team Leader')->where("status",1)->where("dept_id",$deptId)->get();
+		  return view("Home/DashBoardReporting/loadTLData",compact('tL_details','deptId'));
+	  }
+	  
+	  public function loadSEData(Request $request)
+	  {
+		  $deptId =  $request->dept_id;
+		   $agent_details = Employee_details::where("status",1)->where("source_code","!=","-")->where("job_role",'Sales Executive')->where("dept_id",$deptId)->get();
+		   return view("Home/DashBoardReporting/LoadSEData",compact('agent_details'));
+	  }
+	  
+	  public function loadAgentData(Request $request)
+	  {
+		  $tl =  $request->tl;
+		  $dept_id =  $request->dept_id;
+		  $agent_details = Employee_details::where("status",1)->where("source_code","!=","-")->where("dept_id",$dept_id)->where("tl_id",$tl)->get();
+		   return view("Home/DashBoardReporting/loadAgentData",compact('agent_details','tl'));
+	  }
+	  
+	  public function loadStatusData(Request $request)
+	  {
+		   $dept_id =  $request->dept_id;
+		   $enbdStatus =  ENDBCARDStatus::where("status",1)->get();
+		   return view("Home/DashBoardReporting/loadStatusData",compact('enbdStatus'));
+	  }
+	  public function firstLoadContent(Request $request)
+	  {
+		 
+		  $parameters = $request->input();
+	
+	  $deptId =  $parameters['deptId'];
+		   $fromDate =  $parameters['fromVal'];
+		   $toDate =  $parameters['toVal'];
+		   $TL_list =   $parameters['TL_list'];
+		   $SubmissionStatus =  $parameters['SubmissionStatus'];
+		   $salesAvg =  $parameters['salesAvg'];
+		   $showMis =  $parameters['showMis'];
+		   $tL_SE =  $parameters['tL_SE'];
+		   $typeId =  $parameters['typeId'];
+		   $listedValue =  $parameters['listedValue'];
+		   $ageing =  $parameters['ageing'];
+		   $load_target =  $parameters['load_target'];
+		   $lengthOfService =  $parameters['lengthOfService'];
+		   $fromDate = date("Y-m-d",strtotime($fromDate));
+		
+		  
+		    $toDate = date("Y-m-d",strtotime($toDate));
+		//$fromDate = '2022-12-21';
+		//$toDate = '2023-01-20';
+		$typeSource = array();
+		if($typeId == 'All')
+		{
+			$typeSource[] = 'manual';
+			$typeSource[] = 'Tab';
+		}
+		else
+		{
+			$typeSource[] = $typeId;
+		}
+		$listedValueArray = array(); 
+		if($listedValue == 'All')
+		{
+			$listedValueArray[] = 'Ale';
+			$listedValueArray[] = 'Nale';
+		}
+		else
+		{
+			$listedValueArray[] = $listedValue;
+		}
+		
+		   /*
+		   *getting all TL
+		   */
+		    
+		    if($TL_list == 'All')
+			   {
+			   $tL_details = Employee_details::where("job_role",'Team Leader')->where("status",1)->where("dept_id",$deptId)->get();
+			   }
+			else
+			   {
+				    $tl_array = explode(",",$TL_list);
+					$tL_details = Employee_details::where("job_role",'Team Leader')->where("status",1)->where("dept_id",$deptId)->whereIn("id",$tl_array)->get();
+			   }
+			   
+			   if($SubmissionStatus == 'All')
+			   {
+					$enbdStatus =  ENDBCARDStatus::where("status",1)->get();
+			   }
+			   else
+			   {
+				    $status_array = explode(",",$SubmissionStatus);
+					$enbdStatus =  ENDBCARDStatus::where("status",1)->whereIn("id",$status_array)->get();
+			   }
+		   /*
+		   *getting all TL
+		   */
+		   $detailsAsPerTL = array();
+		   $TLlistValues = array();
+		   $StatusValues = array();
+		   
+				if($showMis == 1)
+				{
+					$totalSubmissions = 0;
+					$listOfSE= array();
+					
+					 foreach($tL_details as $TL)
+					   {
+						   $TLlistValues[] = $TL->first_name;
+						  
+						   foreach($enbdStatus as $status)
+						   {
+							   if($tL_SE == 'All')
+							   {
+									$misLists = MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->where("approved_notapproved",$status->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get();
+							   }
+							   else
+							   {
+								   $TLSEArray = explode(",",$tL_SE);
+								   $misLists = MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->where("approved_notapproved",$status->id)->whereIn("employee_id",$TLSEArray)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get(); 
+							   }
+							   $detailsAsPerTL[$TL->id][$status->id][] =$misLists;	
+							   
+							   $totalSubmissions = $totalSubmissions+count($misLists);
+							   
+							   foreach($misLists as $misSE)
+							   {
+								   if($misSE->Employee_status == 'Verified')
+								   {
+									$listOfSE[$misSE->employee_id] = $misSE->SE_CODE_NAME;
+								   }
+							   }
+						   }
+					   }
+				}
+				else
+				{
+				   foreach($tL_details as $TL)
+				   {
+					   $TLlistValues[] = $TL->first_name;
+					   if($listedValue == 'All')
+						{
+							 $detailsAsPerTL[$TL->id]['login_ale'] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->whereIn("file_source",$typeSource)->where("ALE_NALE",'Ale')->get()->count();
+							 $detailsAsPerTL[$TL->id]['login_nale'] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->whereIn("file_source",$typeSource)->where("ALE_NALE",'Nale')->get()->count();
+							 $detailsAsPerTL[$TL->id]['login'] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get()->count();
+						}
+						else
+						{
+					   $detailsAsPerTL[$TL->id]['login'] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get()->count();
+						}
+					  foreach($enbdStatus as $status)
+					   {
+						 
+						   $detailsAsPerTL[$TL->id][$status->id] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("TL",$TL->id)->where("approved_notapproved",$status->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get()->count();
+					   }
+				   }
+				   
+				}
+				
+				    foreach($enbdStatus as $status)
+					   {
+						     $StatusValues[] = $status->status_name;
+					   }
+		  
+		   if($TL_list == 'All')
+			   {
+				   $tls = 'All';
+			   }
+		   else
+			   {
+				   $tls = implode(',',$TLlistValues);
+			   }
+			   
+		   if($SubmissionStatus == 'All')
+			   {
+				   $statusListing = 'All';
+			   }
+		   else
+			   {
+				   $statusListing = implode(',',$StatusValues);
+			   }
+			   $tltarget = array();
+			 if($load_target == 2)
+			 {
+			    
+				$datediff = strtotime($toDate) - strtotime($fromDate);
+
+				$totalDays = round($datediff / (60 * 60 * 24));
+				$firstMonth = date("m",strtotime($fromDate));
+				$firstYear = date("Y",strtotime($fromDate));
+				$lastMonth = date("m",strtotime($toDate));
+				$lastYear = date("Y",strtotime($toDate));
+				foreach($tL_details as $tl)
+				{
+					$totaltarget = 0;
+					$teamLeaderModelFirst = Team_Leader::where("month",$firstMonth)->where("year",$firstYear)->where("product",1)->where("team_id",$tl->id)->first();
+					if($teamLeaderModelFirst != '')
+					{
+						$totaltarget = $totaltarget+$teamLeaderModelFirst->team_target;
+					}
+					
+					if($firstMonth != $lastMonth)
+					{
+						
+						$teamLeaderModelLast = Team_Leader::where("month",$lastMonth)->where("year",$lastYear)->where("product",1)->where("team_id",$tl->id)->first();
+					if($teamLeaderModelLast != '')
+					{
+						$totaltarget = $totaltarget+$teamLeaderModelLast->team_target;
+					}
+						
+					}
+					$tltarget[$tl->id]	= $totaltarget;
+					
+				}
+				
+			 }				 
+			 if($showMis == 1)
+				{
+					return view("Home/DashBoardReporting/firstLoadContentListing",compact('detailsAsPerTL','fromDate','toDate','enbdStatus','tls','statusListing','salesAvg','totalSubmissions','listOfSE','tL_SE','typeId','listedValue','ageing'));
+				}
+				else
+				{
+					return view("Home/DashBoardReporting/firstLoadContent",compact('detailsAsPerTL','fromDate','toDate','enbdStatus','tls','statusListing','salesAvg','showMis','typeId','listedValue','tltarget','load_target','lengthOfService'));
+				}
+	  }
+	  
+	  
+	  
+	  
+	   public function firstLoadContentSE(Request $request)
+	  {
+		 
+		  $parameters = $request->input();
+	
+	  $deptId =  $parameters['deptId'];
+		   $fromDate =  $parameters['fromVal'];
+		   $toDate =  $parameters['toVal'];
+		   $SE_list =   $parameters['SE_list'];
+		   $SubmissionStatus =  $parameters['SubmissionStatus'];
+		   $salesAvg =  $parameters['salesAvg'];
+		   $showMis =  $parameters['showMis'];
+		  
+		   $typeId =  $parameters['typeId'];
+		   $listedValue =  $parameters['listedValue'];
+		   $ageing =  $parameters['ageing'];
+		   $load_target_SE =  $parameters['load_target_SE'];
+		   $lengthOfService =  $parameters['lengthOfService'];
+		   $fromDate = date("Y-m-d",strtotime($fromDate));
+		
+		  
+		    $toDate = date("Y-m-d",strtotime($toDate));
+		//$fromDate = '2022-12-21';
+		//$toDate = '2023-01-20';
+		$typeSource = array();
+		if($typeId == 'All')
+		{
+			$typeSource[] = 'manual';
+			$typeSource[] = 'Tab';
+		}
+		else
+		{
+			$typeSource[] = $typeId;
+		}
+		$listedValueArray = array(); 
+		if($listedValue == 'All')
+		{
+			$listedValueArray[] = 'Ale';
+			$listedValueArray[] = 'Nale';
+		}
+		else
+		{
+			$listedValueArray[] = $listedValue;
+		}
+		
+		   /*
+		   *getting all TL
+		   */
+		    
+		    if($SE_list == 'All')
+			   {
+					$agent_details = Employee_details::where("status",1)->where("source_code","!=","-")->where("job_role",'Sales Executive')->where("dept_id",$deptId)->get();
+			   }
+			else
+			   {
+				    $SE_array = explode(",",$SE_list);
+					$agent_details = Employee_details::where("status",1)->where("source_code","!=","-")->where("job_role",'Sales Executive')->where("dept_id",$deptId)->whereIn("id",$SE_array)->get();
+			   }
+			   
+			   if($SubmissionStatus == 'All')
+			   {
+					$enbdStatus =  ENDBCARDStatus::where("status",1)->get();
+			   }
+			   else
+			   {
+				    $status_array = explode(",",$SubmissionStatus);
+					$enbdStatus =  ENDBCARDStatus::where("status",1)->whereIn("id",$status_array)->get();
+			   }
+		   /*
+		   *getting all TL
+		   */
+		   $detailsAsPerTL = array();
+		   $TLlistValues = array();
+		   $StatusValues = array();
+		   
+				if($showMis == 1)
+				{
+					$totalSubmissions = 0;
+					
+					
+					 foreach($agent_details as $Agent)
+					   {
+						   $AgentlistValues[] = $Agent->first_name;
+						  
+						   foreach($enbdStatus as $status)
+						   {
+							   if($SE_list == 'All')
+							   {
+									$misLists = MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("employee_id",$Agent->id)->where("approved_notapproved",$status->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get();
+							   }
+							   else
+							   {
+								   $SE_array = explode(",",$SE_list);
+								   $misLists = MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("approved_notapproved",$status->id)->whereIn("employee_id",$SE_array)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get(); 
+							   }
+							   $detailsAsPerTL[$Agent->id][$status->id][] =$misLists;	
+							   
+							   $totalSubmissions = $totalSubmissions+count($misLists);
+							   
+							 
+						   }
+					   }
+				}
+				else
+				{
+				   foreach($agent_details as $Agent)
+				   {
+					   $AgentlistValues[] = $Agent->first_name;
+					   $detailsAsPerTL[$Agent->id]['login'] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("employee_id",$Agent->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get()->count();
+					   foreach($enbdStatus as $status)
+					   {
+						 
+						   $detailsAsPerTL[$Agent->id][$status->id] =	MainMisReport::whereDate("submission_format",">=",$fromDate)->whereDate("submission_format","<=",$toDate)->where("employee_id",$Agent->id)->where("approved_notapproved",$status->id)->whereIn("file_source",$typeSource)->whereIn("ALE_NALE",$listedValueArray)->get()->count();
+					   }
+				   }
+				   
+				}
+				
+				    foreach($enbdStatus as $status)
+					   {
+						     $StatusValues[] = $status->status_name;
+					   }
+		  
+		   if($SE_list == 'All')
+			   {
+				   $agents = 'All';
+			   }
+		   else
+			   {
+				   $agents = implode(',',$AgentlistValues);
+			   }
+			   
+		   if($SubmissionStatus == 'All')
+			   {
+				   $statusListing = 'All';
+			   }
+		   else
+			   {
+				   $statusListing = implode(',',$StatusValues);
+			   }
+			    $setarget = array();
+			 if($load_target_SE == 2)
+			 {
+			    
+				$datediff = strtotime($toDate) - strtotime($fromDate);
+
+				$totalDays = round($datediff / (60 * 60 * 24));
+				$firstMonth = date("m",strtotime($fromDate));
+				$firstYear = date("Y",strtotime($fromDate));
+				$lastMonth = date("m",strtotime($toDate));
+				$lastYear = date("Y",strtotime($toDate));
+				foreach($agent_details as $agent)
+				{
+					$totaltarget = 0;
+					$teamLeaderModelFirst = Team_Leader::where("month",$firstMonth)->where("year",$firstYear)->where("product",1)->where("agent_id",$agent->id)->first();
+					if($teamLeaderModelFirst != '')
+					{
+						$totaltarget = $totaltarget+$teamLeaderModelFirst->team_target;
+					}
+					
+					if($firstMonth != $lastMonth)
+					{
+						
+						$teamLeaderModelLast = Team_Leader::where("month",$lastMonth)->where("year",$lastYear)->where("product",1)->where("agent_id",$agent->id)->first();
+					if($teamLeaderModelLast != '')
+					{
+						$totaltarget = $totaltarget+$teamLeaderModelLast->team_target;
+					}
+						
+					}
+					$setarget[$agent->id]	= $totaltarget;
+					
+				}
+				
+			 }	
+			 if($showMis == 1)
+				{
+					return view("Home/DashBoardReporting/firstLoadContentListingSE",compact('detailsAsPerTL','fromDate','toDate','enbdStatus','agents','statusListing','salesAvg','totalSubmissions','typeId','listedValue','ageing'));
+				}
+				else
+				{
+					return view("Home/DashBoardReporting/firstLoadContentSE",compact('detailsAsPerTL','fromDate','toDate','enbdStatus','agents','statusListing','salesAvg','typeId','listedValue','setarget','load_target_SE','lengthOfService'));
+				}
+	  }
+	  
+	 public static function getMISStatus($statusId)
+	 {
+		 return ENDBCARDStatus::where("id",$statusId)->first()->status_name;
+	 }
+	  
+	 public static function getSEName($seId)
+	 {
+		 return Employee_details::where("id",$seId)->first()->first_name;
+	 }
+	  
+}

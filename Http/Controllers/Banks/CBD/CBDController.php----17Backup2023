@@ -1,0 +1,1657 @@
+<?php
+
+namespace App\Http\Controllers\Banks\CBD;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Attribute\DepartmentForm;
+use App\Models\Attribute\DepartmentFormEntry;
+use App\Models\Attribute\DepartmentFormChildEntry;
+use App\Models\Attribute\FormProduct;
+use App\Models\Attribute\MasterAttribute;
+use App\Models\Attribute\AttributeType;
+use App\Models\Attribute\FormSection;
+
+
+use App\Models\Company\Department;
+use App\Models\Employee\Employee_details;
+
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
+use App\Http\Controllers\Attribute\DepartmentFormController;
+use App\Models\Bank\CBD\CBDBankMis;
+
+use Session;
+
+class CBDController extends Controller
+{
+ public static function getEmployeeName($empid)
+ {
+	 if($empid != '' && $empid != NULL)
+	 {
+		$empName = Employee_details::select("first_name")->where("emp_id",$empid)->first();
+		if($empName != '')
+		{
+			return $empName->first_name;
+		}
+		else
+		{
+			return '';
+		}
+	 }
+	 else
+	 {
+		 return '';
+	 }
+ }
+ public function cbdCardsManagement()
+ {
+		/*
+		*employee Id
+		*/
+			$employeeIdList = DepartmentFormEntry::select('emp_id')->where("form_id",2)->get()->unique('emp_id');
+			
+		/*
+		*employee Id
+		*/
+		
+		
+		
+		
+		/*
+		*status
+		*/
+			$teamData = DepartmentFormEntry::select('team')->where("form_id",2)->get()->unique('team');
+			
+		/*
+		*status
+		*/
+	return view("Banks/CBD/cbdCardsManagement",compact("employeeIdList","teamData"));
+ }
+ 
+ public function addcbdCards()
+ {
+			$departmentFormDetails =   DepartmentForm::where("id",2)->first();
+		  $DepartmentNameDetails =   Department::where("id",$departmentFormDetails->department_id)->first();
+		  $masterAttributeDetails = MasterAttribute::where("status",1)->orwhere("status",2)->orderBy("attribute_name","ASC")->get(); 
+		  $DepartmentDetails = Department::where("status",1)->orwhere("status",2)->orderBy('department_name','ASC')->get();
+		  $FormSectionDetails = FormSection::where("status",1)->orwhere("status",2)->orderBy("section","ASC")->get();
+
+		  $departmentFormAttributeGroup = DB::table('department_form_attribute')->where('form_id', 2)->groupby('form_section')->orderby('sort_order','ASC')->get(['form_section']);
+
+		  $departmentFormAttributeDetails = DB::table('department_form_attribute')->where('form_id', 2)->orderby('form_section','ASC')->orderby('sort_order','ASC')->get();
+
+		  $Employee_details = Employee_details::where("offline_status",1)->where("dept_id",49)->where("job_function",2)->orderby('first_name','ASC')->get();
+        
+		  return view("Banks/CBD/addcbdCards",compact('departmentFormDetails','departmentFormAttributeDetails','DepartmentDetails','masterAttributeDetails','FormSectionDetails','departmentFormAttributeGroup','DepartmentNameDetails','Employee_details'));
+ }
+ public function editcbdCards($parent_id=NULL,$form_id=NULL)
+ {
+		  $departmentFormDetails =   DepartmentForm::where("id",$form_id)->first();		  
+		  $DepartmentNameDetails =   Department::where("id",$departmentFormDetails->department_id)->first();
+		  $masterAttributeDetails = MasterAttribute::where("status",1)->orwhere("status",2)->orderBy("attribute_name","ASC")->get(); 
+		  $DepartmentDetails = Department::where("status",1)->orwhere("status",2)->orderBy('department_name','ASC')->get();
+		  $FormSectionDetails = FormSection::where("status",1)->orwhere("status",2)->orderBy("section","ASC")->get();
+
+		  $departmentFormAttributeGroup = DB::table('department_form_attribute')->where('form_id', $form_id)->groupby('form_section')->orderby('sort_order','ASC')->get(['form_section']);
+
+		  $departmentFormAttributeDetails = DB::table('department_form_attribute')->where('form_id', $form_id)->orderby('form_section','ASC')->orderby('sort_order','ASC')->get();
+
+		  $departmentFormParentDetails = DB::table('department_form_parent_entry')->where('id', $parent_id)->first();
+
+		  $departmentFormChildDetails = DB::table('department_form_child_entry')->where('parent_id', $parent_id)->where('form_id', $form_id)->get();
+
+		   $Employee_details = Employee_details::where("offline_status",1)->where("dept_id",49)->where("job_function",2)->orderby('first_name','ASC')->get();
+        
+		  return view("Banks/CBD/editcbdCards",compact('departmentFormDetails','departmentFormAttributeDetails','DepartmentDetails','masterAttributeDetails','FormSectionDetails','departmentFormAttributeGroup','departmentFormParentDetails','departmentFormChildDetails','Employee_details','DepartmentNameDetails'));
+ }
+ public function addCBDEntryPost(Request $request)
+ {
+			$postData = $request->input();
+			
+			$postDataInput = $postData['attribute_value'];
+			$entry_obj = new DepartmentFormEntry();			
+	
+			/*
+			*parent entry 
+			*start code
+			*/
+			$entry_obj->ref_no = $postDataInput['ref_no'];
+			$entry_obj->form_id = 2;
+			$entry_obj->form_title = 'CBD Internal MIS';
+			$entry_obj->form_status = $postDataInput['status_cbd'];
+			$entry_obj->team = $postDataInput['sm_name_cbd'];
+			$entry_obj->customer_name = $postDataInput['customer_name'];
+			$entry_obj->customer_mobile = $postDataInput['customer_mobile'];
+			$entry_obj->remarks = $postDataInput['CBD_remark'];
+			$entry_obj->emp_id = $postDataInput['agent_name_cbd'];
+			$entry_obj->channel_cbd = $postDataInput['channel_cbd'];
+			$entry_obj->status_AECB_cbd = $postDataInput['aecb_status'];
+			$entry_obj->card_type_cbd = $postDataInput['card_type_cbd'];
+			$entry_obj->application_date = date("Y-m-d",strtotime($postDataInput['app_date']));
+			$entry_obj->status = 1;
+			$entry_obj->save();
+			$insertID = $entry_obj->id;
+			/*
+			*parent entry 
+			*end code
+			*/
+			
+			
+			/*
+			*child entry 
+			*start code
+			*/
+			$child_obj = new DepartmentFormChildEntry();
+			foreach($postDataInput as $key=>$value)
+			{
+				$child_obj = new DepartmentFormChildEntry();
+				$child_obj->parent_id = $insertID;
+				$child_obj->form_id = 2;
+				$child_obj->attribute_code = $key;
+				$child_obj->attribute_value = $value;
+				$child_obj->status = 1;
+				$child_obj->save();
+			}
+			
+			/*
+			*child entry 
+			*end code
+			*/
+            $request->session()->flash('message','Record added Successfully.');
+			return redirect('cbdCardsManagement');
+	 
+ }
+ 
+ public function editCBDFormEntryPost(Request $request)
+ {
+	 
+			$postData = $request->input();
+			$postDataInput = $postData['attribute_value'];
+			$entry_objUpdate = DepartmentFormEntry::find($postData['parent_id']);			
+	
+			/*
+			*parent entry 
+			*start code
+			*/
+			$entry_objUpdate->ref_no = $postDataInput['ref_no'];
+			$entry_objUpdate->form_id = 2;
+			$entry_objUpdate->form_title = 'CBD Internal MIS';
+			$entry_objUpdate->form_status = $postDataInput['status_cbd'];
+			$entry_objUpdate->team = $postDataInput['sm_name_cbd'];
+			$entry_objUpdate->customer_name = $postDataInput['customer_name'];
+			$entry_objUpdate->customer_mobile = $postDataInput['customer_mobile'];
+			$entry_objUpdate->remarks = $postDataInput['CBD_remark'];
+			$entry_objUpdate->application_date = date("Y-m-d",strtotime($postDataInput['app_date']));
+			$entry_objUpdate->emp_id = $postDataInput['agent_name_cbd'];
+			$entry_objUpdate->channel_cbd = $postDataInput['channel_cbd'];
+			$entry_objUpdate->status_AECB_cbd = $postDataInput['aecb_status'];
+			$entry_objUpdate->card_type_cbd = $postDataInput['card_type_cbd'];
+			$entry_objUpdate->status = 1;
+			$entry_objUpdate->save();
+			$insertID = $entry_objUpdate->id;
+			/*
+			*parent entry 
+			*end code
+			*/
+			
+			
+			/*
+			*child entry 
+			*start code
+			*/
+			
+			foreach($postDataInput as $key=>$value)
+			{
+				$existChild = DepartmentFormChildEntry::where("parent_id",$postData['parent_id'])->where("attribute_code",$key)->first();
+				if($existChild != '')
+				{
+				$child_obj = DepartmentFormChildEntry::find($existChild->id);
+				$child_obj->parent_id = $insertID;
+				$child_obj->form_id = 2;
+				$child_obj->attribute_code = $key;
+				$child_obj->attribute_value = $value;
+				$child_obj->status = 1;
+				$child_obj->save();
+				}
+				else
+				{
+					$child_obj = new DepartmentFormChildEntry();
+				$child_obj->parent_id = $insertID;
+				$child_obj->form_id = 2;
+				$child_obj->attribute_code = $key;
+				$child_obj->attribute_value = $value;
+				$child_obj->status = 1;
+				$child_obj->save();
+				}
+			}
+			
+			/*
+			*child entry 
+			*end code
+			*/
+            $request->session()->flash('message','Record Updated Successfully.');
+			return redirect('cbdCardsManagement');
+			
+ }
+ public function setPaginationValueCBDCard(Request $request)
+ {
+	 $offset = $request->offset;
+	 $request->session()->put('paginationValue',$offset);
+	 return redirect('loadBankContentsCBDCard');
+ }
+ 
+ public function loadBankContentsCBDCard(Request $request)
+	{
+		 //$request->session()->put('paginationValue','');
+		$form_id = 2;
+		$searchValues = array();
+
+		$paginationValue = 20;
+		if(@$request->session()->get('paginationValue') != '')
+		{
+			$paginationValue = $request->session()->get('paginationValue');
+			$searchValues['paginationValue'] = $paginationValue;
+		}		
+		
+		$id = $form_id;
+		$departmentFormDetails =   DepartmentForm::where("id",$form_id)->first(); 
+		$DepartmentNameDetails =   Department::where("id",$departmentFormDetails->department_id)->first();
+		$where_array = array('form_id'=> $form_id);
+		$whereRaw = " form_id='".$form_id."' AND (status='1' OR status='2')";
+
+		
+		
+
+		
+
+		/* if(@$request->session()->get('form_status') != '')
+		{
+			$form_status = $request->session()->get('form_status');
+			$form_status_str = '';
+			foreach($form_status as $form_status_value)
+			{
+				if($form_status_str == '')
+				{
+					$form_status_str = "'".$form_status_value."'";
+				}
+				else
+				{
+					$form_status_str = $form_status_str.","."'".$form_status_value."'";
+				}
+			}
+			$whereRaw .= " AND form_status IN (".$form_status_str.")";			
+		} */
+		
+		if(@$request->session()->get('master_cbd_search_internal') != '' && @$request->session()->get('master_cbd_search_internal') == 2)
+		{
+			if(@$request->session()->get('ref_no_CBD_master') != '')
+				{
+					$refNO = $request->session()->get('ref_no_CBD_master');
+					
+				
+					$whereRaw .= " AND ref_no like '%".$refNO."%'";	
+					
+					
+				}
+				
+				
+				
+				if(@$request->session()->get('team_CBD_master') != '')
+				{
+					$teamL = $request->session()->get('team_CBD_master');
+					$teamstr = '';
+					foreach($teamL  as $lS)
+					{
+						if($teamstr == '')
+						{
+							$teamstr = "'".$lS."'";
+						}
+						else
+						{
+							$teamstr = $teamstr.",'".$lS."'";
+						}
+					}
+				
+					$whereRaw .= " AND team IN (".$teamstr.")";	
+					
+					
+				}
+				
+				if(@$request->session()->get('emp_id_CBD_master') != '')
+				{
+					$empIds = $request->session()->get('emp_id_CBD_master');
+					$empStr = '';
+					foreach($empIds  as $eid)
+					{
+						if($empStr == '')
+						{
+							$empStr = "'".$eid."'";
+						}
+						else
+						{
+							$empStr = $empStr.",'".$eid."'";
+						}
+					}
+				
+					$whereRaw .= " AND emp_id IN (".$empStr.")";	
+					
+					
+				}
+				
+				if($request->session()->get('start_date_application_CBD_master') != '')
+				{
+					$start_date_application_CBD_internal = $request->session()->get('start_date_application_CBD_master');			
+					$whereRaw .= " AND application_date >='".date('Y-m-d',strtotime($start_date_application_CBD_internal))."'";
+					$searchValues['start_date_application_CBD_master'] = $start_date_application_CBD_internal;			
+				}
+
+				if($request->session()->get('end_date_application_CBD_master') != '')
+				{
+					$end_date_application_CBD_internal = $request->session()->get('end_date_application_CBD_master');			
+					$whereRaw .= " AND application_date <='".date('Y-m-d',strtotime($end_date_application_CBD_internal))."'";
+					$searchValues['end_date_application_CBD_master'] = $end_date_application_CBD_internal;			
+				}
+		}
+		else
+		{
+				if(@$request->session()->get('ref_no_CBD_internal') != '')
+				{
+					$refNO = $request->session()->get('ref_no_CBD_internal');
+					
+				
+					$whereRaw .= " AND ref_no like '%".$refNO."%'";	
+					
+					
+				}
+				if(@$request->session()->get('form_status_CBD_internal') != '')
+				{
+					$status = $request->session()->get('form_status_CBD_internal');
+					$strStatus = '';
+					foreach($status  as $s)
+					{
+						if($strStatus == '')
+						{
+							$strStatus = "'".$s."'";
+						}
+						else
+						{
+							$strStatus = $strStatus.",'".$s."'";
+						}
+					}
+				
+					$whereRaw .= " AND form_status IN (".$strStatus.")";	
+					
+					
+				}
+				
+				
+				if(@$request->session()->get('team_CBD_internal') != '')
+				{
+					$teamL = $request->session()->get('team_CBD_internal');
+					$teamstr = '';
+					foreach($teamL  as $lS)
+					{
+						if($teamstr == '')
+						{
+							$teamstr = "'".$lS."'";
+						}
+						else
+						{
+							$teamstr = $teamstr.",'".$lS."'";
+						}
+					}
+				
+					$whereRaw .= " AND team IN (".$teamstr.")";	
+					
+					
+				}
+				
+				if(@$request->session()->get('emp_id_CBD_internal') != '')
+				{
+					$empIds = $request->session()->get('emp_id_CBD_internal');
+					$empStr = '';
+					foreach($empIds  as $eid)
+					{
+						if($empStr == '')
+						{
+							$empStr = "'".$eid."'";
+						}
+						else
+						{
+							$empStr = $empStr.",'".$eid."'";
+						}
+					}
+				
+					$whereRaw .= " AND emp_id IN (".$empStr.")";	
+					
+					
+				}
+				
+				if(@$request->session()->get('channel_CBD_internal') != '')
+				{
+					$channelInternalL = $request->session()->get('channel_CBD_internal');
+					$channelInternalstr = '';
+					foreach($channelInternalL  as $cL)
+					{
+						if($channelInternalstr == '')
+						{
+							$channelInternalstr = "'".$cL."'";
+						}
+						else
+						{
+							$channelInternalstr = $channelInternalstr.",'".$cL."'";
+						}
+					}
+				
+					$whereRaw .= " AND channel_cbd IN (".$channelInternalstr.")";	
+					
+					
+				}
+				if(@$request->session()->get('status_AECB_CBD_internal') != '')
+				{
+					$statusAECBL = $request->session()->get('status_AECB_CBD_internal');
+					$statusAECBstr = '';
+					foreach($statusAECBL  as $sL)
+					{
+						if($statusAECBstr == '')
+						{
+							$statusAECBstr = "'".$sL."'";
+						}
+						else
+						{
+							$statusAECBstr = $statusAECBstr.",'".$sL."'";
+						}
+					}
+				
+					$whereRaw .= " AND status_AECB_cbd IN (".$statusAECBstr.")";	
+					
+					
+				}
+				
+				if(@$request->session()->get('card_type_CBD_internal') != '')
+				{
+					$cardTypeInterbalL = $request->session()->get('card_type_CBD_internal');
+					$cardTypeInterbalstr = '';
+					foreach($cardTypeInterbalL  as $CY)
+					{
+						if($cardTypeInterbalstr == '')
+						{
+							$cardTypeInterbalstr = "'".$CY."'";
+						}
+						else
+						{
+							$cardTypeInterbalstr = $cardTypeInterbalstr.",'".$CY."'";
+						}
+					}
+				
+					$whereRaw .= " AND card_type_cbd IN (".$cardTypeInterbalstr.")";	
+					
+					
+				}
+				
+				if($request->session()->get('start_date_application_CBD_internal') != '')
+				{
+					$start_date_application_CBD_internal = $request->session()->get('start_date_application_CBD_internal');			
+					$whereRaw .= " AND application_date >='".date('Y-m-d',strtotime($start_date_application_CBD_internal))."'";
+					$searchValues['start_date_application_CBD_internal'] = $start_date_application_CBD_internal;			
+				}
+
+				if($request->session()->get('end_date_application_CBD_internal') != '')
+				{
+					$end_date_application_CBD_internal = $request->session()->get('end_date_application_CBD_internal');			
+					$whereRaw .= " AND application_date <='".date('Y-m-d',strtotime($end_date_application_CBD_internal))."'";
+					$searchValues['end_date_application_CBD_internal'] = $end_date_application_CBD_internal;			
+				}
+		
+		}
+		
+
+		$departmentFormParentTotal = DB::table('department_form_parent_entry')->whereRaw($whereRaw)->orderby('application_date','DESC')->get()->count();
+
+		$departmentFormParentDetails = DB::table('department_form_parent_entry')->whereRaw($whereRaw)->orderby('application_date','DESC')->paginate($paginationValue);
+
+		
+
+		
+
+		
+		/*
+		*employee Id
+		*/
+			$employeeIdList = DepartmentFormEntry::select('emp_id')->where("form_id",2)->get()->unique('emp_id');
+			
+		/*
+		*employee Id
+		*/
+		
+		
+		/*
+		*status
+		*/
+			$formStatusData = DepartmentFormEntry::select('form_status')->where("form_id",2)->get()->unique('form_status');
+			
+		/*
+		*status
+		*/
+		
+		/*
+		*Team
+		*/
+			$teamData = DepartmentFormEntry::select('team')->where("form_id",2)->get()->unique('team');
+			
+		/*
+		*Team
+		*/
+		
+		
+		/*
+		*channel_cbd
+		*/
+			$channel_cbd = DepartmentFormEntry::select('channel_cbd')->where("form_id",2)->get()->unique('channel_cbd');
+			
+		/*
+		*channel_cbd
+		*/
+		
+		/*
+		*status_AECB_cbd
+		*/
+			$status_AECB_cbd = DepartmentFormEntry::select('status_AECB_cbd')->where("form_id",2)->get()->unique('status_AECB_cbd');
+			
+		/*
+		*status_AECB_cbd
+		*/
+		
+		
+		/*
+		*card_type_cbd
+		*/
+			$card_type_cbd = DepartmentFormEntry::select('card_type_cbd')->where("form_id",2)->get()->unique('card_type_cbd');
+			
+		/*
+		*card_type_cbd
+		*/
+
+        return view("Banks/CBD/loadBankContentsCBDCard",compact('id','departmentFormDetails','DepartmentNameDetails','departmentFormParentDetails','departmentFormParentTotal','searchValues','employeeIdList','formStatusData','teamData','channel_cbd','status_AECB_cbd','card_type_cbd'));
+	}
+	
+	public function searchCBDInternalInner(Request $request)
+	{
+				$requestParameters = $request->input();
+				
+				$start_date_application = '';
+				$end_date_application = '';
+				$team = '';
+				$form_status = '';
+				$ref_no = '';
+				$emp_id = '';
+				
+				$channel_cbd = '';
+				$status_AECB_cbd = '';
+				$card_type_cbd = '';
+				
+				if(isset($requestParameters['channel_cbd']))
+				{
+					$channel_cbd = @$requestParameters['channel_cbd'];
+				}
+				
+				if(isset($requestParameters['status_AECB_cbd']))
+				{
+					$status_AECB_cbd = @$requestParameters['status_AECB_cbd'];
+				}
+				
+				if(isset($requestParameters['card_type_cbd']))
+				{
+					$card_type_cbd = @$requestParameters['card_type_cbd'];
+				}
+
+				if(@isset($requestParameters['ref_no']))
+				{
+					$ref_no = @$requestParameters['ref_no'];
+				}
+
+				if(isset($requestParameters['team']))
+				{
+					$team = @$requestParameters['team'];
+				}
+
+				if(isset($requestParameters['form_status']))
+				{
+					$form_status = @$requestParameters['form_status'];
+				}
+				
+				if(isset($requestParameters['emp_id']))
+				{
+					$emp_id = @$requestParameters['emp_id'];
+				}
+
+				if(isset($requestParameters['start_date_application']))
+				{
+					$start_date_application = @$requestParameters['start_date_application'];
+				}
+				if(isset($requestParameters['end_date_application']))
+				{
+					$end_date_application = @$requestParameters['end_date_application'];
+				}
+				$request->session()->put('master_cbd_search_internal','');
+				$request->session()->put('ref_no_CBD_internal',$ref_no);
+				$request->session()->put('form_status_CBD_internal',$form_status);
+				$request->session()->put('team_CBD_internal',$team);
+				$request->session()->put('emp_id_CBD_internal',$emp_id);
+				$request->session()->put('start_date_application_CBD_internal',$start_date_application);
+				$request->session()->put('end_date_application_CBD_internal',$end_date_application);
+				$request->session()->put('channel_CBD_internal',$channel_cbd);
+				$request->session()->put('status_AECB_CBD_internal',$status_AECB_cbd);
+				$request->session()->put('card_type_CBD_internal',$card_type_cbd);
+				return redirect("loadBankContentsCBDCard");
+	}
+	
+	
+	public function resetLoginInnerCBDInternal(Request $request)
+	{
+			$request->session()->put('ref_no_CBD_internal','');
+				$request->session()->put('form_status_CBD_internal','');
+				$request->session()->put('team_CBD_internal','');
+				$request->session()->put('emp_id_CBD_internal','');
+				$request->session()->put('start_date_application_CBD_internal','');
+				$request->session()->put('end_date_application_CBD_internal','');
+				$request->session()->put('channel_CBD_internal','');
+				$request->session()->put('status_AECB_CBD_internal','');
+				$request->session()->put('card_type_CBD_internal','');
+				$request->session()->put('master_cbd_search_internal',2);
+				return redirect("loadBankContentsCBDCard");
+	}
+	public function loadBankContentsCBDCardBankSide(Request $request)
+	{
+		$paginationValue = 20;
+		$searchValues = array();
+		if(@$request->session()->get('paginationValue') != '')
+		{
+			$paginationValue = $request->session()->get('paginationValue');
+			$searchValues['paginationValue'] = $paginationValue;
+		}
+
+		$whereRaw = " ref_no!=''";	
+		if(@$request->session()->get('master_cbd_search_bank') != '' && @$request->session()->get('master_cbd_search_bank') == 2)
+		{
+				  if(@$request->session()->get('ref_no_CBD_master') != '')
+					{
+						$refNO = $request->session()->get('ref_no_CBD_master');
+						
+					
+						$whereRaw .= " AND ref_no like '%".$refNO."%'";	
+						
+						
+					}
+					
+					if(@$request->session()->get('emp_id_CBD_master') != '')
+					{
+						$employeeMod = $request->session()->get('emp_id_CBD_master');
+						$employeeModStr = '';
+						foreach($employeeMod  as $modID)
+						{
+							if($employeeModStr == '')
+							{
+								$employeeModStr = "'".$modID."'";
+							}
+							else
+							{
+								$employeeModStr = $employeeModStr.",'".$modID."'";
+							}
+						}
+					
+						$whereRaw .= " AND employee_id IN (".$employeeModStr.")";	
+						
+						
+					}
+					
+					if(@$request->session()->get('team_CBD_master') != '')
+					{
+						$SMMod = $request->session()->get('team_CBD_master');
+						$smStr = '';
+						foreach($SMMod  as $SM)
+						{
+							if($smStr == '')
+							{
+								$smStr = "'".$SM."'";
+							}
+							else
+							{
+								$smStr = $smStr.",'".$SM."'";
+							}
+						}
+					
+						$whereRaw .= " AND sm_manager IN (".$smStr.")";	
+						
+						
+					}
+					
+					if($request->session()->get('start_date_application_CBD_master') != '')
+					{
+						$start_date_creation_CBD_bank = $request->session()->get('start_date_application_CBD_master');			
+						$whereRaw .= " AND creation_date >='".date('Y-m-d',strtotime($start_date_creation_CBD_bank))."'";
+						$searchValues['start_date_application_CBD_master'] = $start_date_creation_CBD_bank;			
+					}
+
+					if($request->session()->get('end_date_application_CBD_master') != '')
+					{
+						$end_date_creation_CBD_bank = $request->session()->get('end_date_application_CBD_master');			
+						$whereRaw .= " AND creation_date <='".date('Y-m-d',strtotime($end_date_creation_CBD_bank))."'";
+						$searchValues['end_date_application_CBD_master'] = $end_date_creation_CBD_bank;			
+					}
+		}
+		else
+		{
+					if(@$request->session()->get('ref_no_CBD_bank') != '')
+					{
+						$refNO = $request->session()->get('ref_no_CBD_bank');
+						
+					
+						$whereRaw .= " AND ref_no like '%".$refNO."%'";	
+						
+						
+					}
+					if(@$request->session()->get('status_CBD_bank') != '')
+					{
+						$status = $request->session()->get('status_CBD_bank');
+						$strStatus = '';
+						foreach($status  as $s)
+						{
+							if($strStatus == '')
+							{
+								$strStatus = "'".$s."'";
+							}
+							else
+							{
+								$strStatus = $strStatus.",'".$s."'";
+							}
+						}
+					
+						$whereRaw .= " AND status IN (".$strStatus.")";	
+						
+						
+					}
+					
+					
+					if(@$request->session()->get('AECB_Status_CBD_bank') != '')
+					{
+						$statusAECB = $request->session()->get('AECB_Status_CBD_bank');
+						$strStatusAECB = '';
+						foreach($statusAECB  as $sAECB)
+						{
+							if($strStatusAECB == '')
+							{
+								$strStatusAECB = "'".$sAECB."'";
+							}
+							else
+							{
+								$strStatusAECB = $strStatusAECB.",'".$sAECB."'";
+							}
+						}
+					
+						$whereRaw .= " AND AECB_Status IN (".$strStatusAECB.")";	
+						
+						
+					}
+					if(@$request->session()->get('employee_id_CBD_bank') != '')
+					{
+						$employeeMod = $request->session()->get('employee_id_CBD_bank');
+						$employeeModStr = '';
+						foreach($employeeMod  as $modID)
+						{
+							if($employeeModStr == '')
+							{
+								$employeeModStr = "'".$modID."'";
+							}
+							else
+							{
+								$employeeModStr = $employeeModStr.",'".$modID."'";
+							}
+						}
+					
+						$whereRaw .= " AND employee_id IN (".$employeeModStr.")";	
+						
+						
+					}
+					
+					if(@$request->session()->get('smManager_CBD_bank') != '')
+					{
+						$SMMod = $request->session()->get('smManager_CBD_bank');
+						$smStr = '';
+						foreach($SMMod  as $SM)
+						{
+							if($smStr == '')
+							{
+								$smStr = "'".$SM."'";
+							}
+							else
+							{
+								$smStr = $smStr.",'".$SM."'";
+							}
+						}
+					
+						$whereRaw .= " AND sm_manager IN (".$smStr.")";	
+						
+						
+					}
+					
+					if($request->session()->get('start_date_creation_CBD_bank') != '')
+					{
+						$start_date_creation_CBD_bank = $request->session()->get('start_date_creation_CBD_bank');			
+						$whereRaw .= " AND creation_date >='".date('Y-m-d',strtotime($start_date_creation_CBD_bank))."'";
+						$searchValues['start_date_creation_CBD_bank'] = $start_date_creation_CBD_bank;			
+					}
+
+					if($request->session()->get('end_date_creation_CBD_bank') != '')
+					{
+						$end_date_creation_CBD_bank = $request->session()->get('end_date_creation_CBD_bank');			
+						$whereRaw .= " AND creation_date <='".date('Y-m-d',strtotime($end_date_creation_CBD_bank))."'";
+						$searchValues['end_date_creation_CBD_bank'] = $end_date_creation_CBD_bank;			
+					}
+
+		}
+		$datasCBDMainCount = CBDBankMis::whereRaw($whereRaw)->get()->count();
+		
+		$datasCBDMain = CBDBankMis::whereRaw($whereRaw)->orderBy("creation_date","DESC")->paginate($paginationValue);
+
+		/*
+		*application  Status
+		*/
+			$appStatusMod = CBDBankMis::select('status')->get()->unique('status');
+			
+		/*
+		*application  Status
+		*/
+
+		/*
+		*application  Status
+		*/
+			$appAECB_StatusMod = CBDBankMis::select('AECB_Status')->get()->unique('AECB_Status');
+			
+		/*
+		*application  Status
+		*/
+		
+		/*
+		*application  Status
+		*/
+			$employeeIdList = CBDBankMis::select('employee_id')->get()->unique('employee_id');
+			
+		/*
+		*application  Status
+		*/
+		
+		/*
+		*Sm Manager
+		*/
+			$smManageData = CBDBankMis::select('sm_manager')->get()->unique('sm_manager');
+			
+		/*
+		*Sm Manager
+		*/
+		 return view("Banks/CBD/loadBankContentsCBDCardBankSide",compact('datasCBDMainCount','datasCBDMain','paginationValue','searchValues','appStatusMod','appAECB_StatusMod','employeeIdList','smManageData'));
+	}
+	
+	
+	public static function importCSVCBD()
+	{
+
+		$file = public_path('uploads/formFiles/3Nov_main_import3.csv');
+		// Open uploaded CSV file with read-only mode
+            $csvFile = fopen($file, 'r');
+            
+            // Skip the first line
+            fgetcsv($csvFile);
+            
+            // Parse data from CSV file line by line
+			$count = 0;
+            while(($line = fgetcsv($csvFile)) !== FALSE)
+			{				
+				/* echo "<pre>";
+				print_r($line);
+				exit; */
+				/*
+				*check for existance
+				*start code
+				*/
+					$refNo = $line[4];
+					if($refNo != '')
+					{
+					$existanceCheck = DepartmentFormEntry::where("ref_no",$refNo)->first();
+				/*
+				*check for existance
+				*start code
+				*/
+				/*
+				*import data
+				*/
+						if($existanceCheck != '')
+						{
+							$entry_obj = DepartmentFormEntry::find($existanceCheck->id);	
+						}
+						else
+						{
+							$entry_obj = new DepartmentFormEntry();			
+						}
+						/*
+						*parent entry 
+						*start code
+						*/
+						$entry_obj->ref_no = $line[4];
+						$entry_obj->form_id = 2;
+						$entry_obj->form_title = 'CBD Internal MIS';
+						$entry_obj->form_status = trim($line[16]);
+						$entry_obj->team = trim($line[0]);
+						$entry_obj->customer_name = trim($line[5]);
+						$entry_obj->customer_mobile = $line[6];
+						$entry_obj->remarks = $line[17];
+						$entry_obj->status_AECB_cbd = $line[14];
+						$entry_obj->approved_limit_cbd = $line[19];
+						$entry_obj->application_date = date("Y-m-d",strtotime($line[3]));
+						$entry_obj->status = 1;
+						$entry_obj->emp_name = trim($line[1]);
+						$entry_obj->save();
+						
+						if($existanceCheck != '')
+						{
+							$insertID = $existanceCheck->id;
+						}
+						else
+						{
+							$insertID = $entry_obj->id;		
+						}
+						/*
+						*parent entry 
+						*end code
+						*/
+						
+						
+						/*
+						*child entry 
+						*start code
+						*/
+						 if($existanceCheck != '')
+							{
+								$existAttrMod = DepartmentFormChildEntry::where("parent_id",$insertID)->get();
+								foreach($existAttrMod as $attr)
+								{
+									$attr->delete();
+								}
+							}
+							
+						
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'card_type_cbd';
+							$child_obj->attribute_value = $line[8];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'MOB';
+							$child_obj->attribute_value = $line[11];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'status_cbd';
+							$child_obj->attribute_value = $line[16];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'channel_cbd';
+							$child_obj->attribute_value = $line[15];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'SUCB_remarks';
+							$child_obj->attribute_value = $line[18];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'CBD_remark';
+							$child_obj->attribute_value = $line[17];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'customer_name';
+							$child_obj->attribute_value = $line[5];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'customer_mobile';
+							$child_obj->attribute_value = $line[6];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'employer_name';
+							$child_obj->attribute_value = $line[7];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'bureau_score';
+							$child_obj->attribute_value = $line[9];
+							$child_obj->status = 1;
+							$child_obj->save();
+						
+						
+						
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'declared_salary_cbd';
+							$child_obj->attribute_value = $line[12];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'eligible_income_cbd';
+							$child_obj->attribute_value = $line[13];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'app_date';
+							$child_obj->attribute_value = $line[3];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'ref_no';
+							$child_obj->attribute_value = $line[4];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'app_score';
+							$child_obj->attribute_value = $line[10];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'aecb_status';
+							$child_obj->attribute_value = $line[14];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'sm_name_cbd';
+							$child_obj->attribute_value = $line[0];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'agent_code_cbd';
+							$child_obj->attribute_value = $line[2];
+							$child_obj->status = 1;
+							$child_obj->save();
+							
+							
+							$child_obj = new DepartmentFormChildEntry();
+							$child_obj->parent_id = $insertID;
+							$child_obj->form_id = 2;
+							$child_obj->attribute_code = 'agent_name_cbd';
+							$child_obj->attribute_value = $line[1];
+							$child_obj->status = 1;
+							$child_obj->save(); 
+						
+						/*
+						*child entry 
+						*end code
+						*/
+				
+				/*
+				*import data
+				*/
+               /*  echo "done";
+			exit;  */
+					}
+            }
+            echo "done";
+			exit;
+            // Close opened CSV file
+            fclose($csvFile);
+
+			/*
+			Array
+			(
+				[0] => Sahir
+				[1] => 17-Jul-2023
+				[2] => 91784
+				[3] => Suhel
+				[4] => Muhammad Umair Nawaz Muhammad Nawaz
+				[5] => 0567255705
+				[6] => 7000
+				[7] => 5460417
+				[8] => N1354950
+				[9] => Booked
+				[10] => Booked
+				[11] => CB
+			)
+			*/
+
+	}
+	
+	
+	public function exportDocReportinternalMisCBDCards(Request $request)
+	{
+		$requestPost = $request->input();
+		 $parameters = $request->input(); 
+			/* echo "<pre>";
+			print_r($parameters);
+			exit; */
+	         $selectedId = $parameters['selectedIds'];
+			 
+	        $filename = 'Internal_MIS_CBD_Cards_'.date("d-m-Y").'.xlsx';
+			$spreadsheet = new Spreadsheet();
+			$sheet = $spreadsheet->getActiveSheet();
+			$sheet->mergeCells('A1:T1');
+			$sheet->setCellValue('A1', 'Internal MIS CBD Cards - '.date("d/m/Y"))->getStyle('A1')->getAlignment()->setHorizontal('center')->setVertical('top');
+			$indexCounter = 2;
+			$sheet->setCellValue('A'.$indexCounter, strtoupper('Id'))->getStyle('A'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('B'.$indexCounter, strtoupper('SM Name'))->getStyle('B'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('C'.$indexCounter, strtoupper('Agent Code'))->getStyle('C'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('D'.$indexCounter, strtoupper('Agent Name'))->getStyle('D'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('E'.$indexCounter, strtoupper('Application Date'))->getStyle('E'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('F'.$indexCounter, strtoupper('Application Reference No'))->getStyle('F'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('G'.$indexCounter, strtoupper('Customer Name'))->getStyle('G'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('H'.$indexCounter, strtoupper('Mobile No'))->getStyle('H'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('I'.$indexCounter, strtoupper('Employer Name'))->getStyle('I'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('J'.$indexCounter, strtoupper('Card Type'))->getStyle('J'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('K'.$indexCounter, strtoupper('Bureau Score'))->getStyle('K'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('L'.$indexCounter, strtoupper('App Score'))->getStyle('L'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('M'.$indexCounter, strtoupper('MOB'))->getStyle('M'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('N'.$indexCounter, strtoupper('Declared salary'))->getStyle('N'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('O'.$indexCounter, strtoupper('Eligible Income'))->getStyle('O'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('P'.$indexCounter, strtoupper('AECB Status'))->getStyle('P'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('Q'.$indexCounter, strtoupper('Channel'))->getStyle('Q'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('R'.$indexCounter, strtoupper('Status'))->getStyle('R'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('S'.$indexCounter, strtoupper('CBD  Remark'))->getStyle('S'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			$sheet->setCellValue('T'.$indexCounter, strtoupper('SUCB Remarks'))->getStyle('T'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+			
+			$sn = 1;
+			foreach ($selectedId as $sid) {
+				
+				$mis =  DepartmentFormEntry::where("id",$sid)->first();
+				
+				/*  $Employee_details_data = DepartmentFormController::getEmployeeDetails($mis->emp_id);	 */
+
+			/* $emp_name= @$Employee_details_data->first_name.(@$Employee_details_data->middle_name ? " ".@$Employee_details_data->middle_name:'').(@$Employee_details_data->last_name?" ".@$Employee_details_data->last_name:'');
+
+			$submission_date = @$mis->submission_date;
+			if($submission_date!='0000-00-00')
+			{
+				$submission_date = date('d-m-Y',strtotime($mis->submission_date));
+			}
+			else
+			{
+				$submission_date='';
+			}
+			
+				if($mis->status == 1)
+                  $status='Activated';
+                else
+					$status='Deactivated'; */
+               	
+				 $indexCounter++; 
+
+				/*
+				*agent name
+				*/			
+				$agentNameMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","agent_name_cbd")->first();
+					$agentName = '';
+					if($agentNameMod != '')
+					{
+						$agentName = $agentNameMod->attribute_value;
+					}
+				/*
+				*agent name
+				*/
+				
+				/*
+				*agent code
+				*/			
+				$agentCodeMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","agent_code_cbd")->first();
+					$agentCode = '';
+					if($agentCodeMod != '')
+					{
+						$agentCode = $agentCodeMod->attribute_value;
+					}
+				/*
+				*agent code
+				*/
+				
+				
+				/*
+				*employeer name
+				*/			
+				$employeeMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","employer_name")->first();
+					$employeerName = '';
+					if($employeeMod != '')
+					{
+						$employeerName = $employeeMod->attribute_value;
+					}
+				/*
+				*employeer name
+				*/
+				
+				/*
+				*Card Type
+				*/			
+				$cardTypeMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","card_type_cbd")->first();
+					$cardType = '';
+					if($cardTypeMod != '')
+					{
+						$cardType = $cardTypeMod->attribute_value;
+					}
+				/*
+				*Card Type
+				*/
+				
+				/*
+				*bureau_score
+				*/			
+				$bureauMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","bureau_score")->first();
+					$bureauS = '';
+					if($bureauMod != '')
+					{
+						$bureauS = $bureauMod->attribute_value;
+					}
+				/*
+				*bureau_score
+				*/
+				
+				/*
+				*app_score
+				*/			
+				$appSMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","app_score")->first();
+					$appS = '';
+					if($appSMod != '')
+					{
+						$appS = $appSMod->attribute_value;
+					}
+				/*
+				*app_score
+				*/
+				
+				/*
+				*MOB
+				*/			
+				$MOBMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","MOB")->first();
+					$MOB = '';
+					if($MOBMod != '')
+					{
+						$MOB = $MOBMod->attribute_value;
+					}
+				/*
+				*MOB
+				*/
+				
+				/*
+				*declared_salary_cbd
+				*/			
+				$declared_salary_cbdMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","declared_salary_cbd")->first();
+					$declared_salary_cbd = '';
+					if($declared_salary_cbdMod != '')
+					{
+						$declared_salary_cbd = $declared_salary_cbdMod->attribute_value;
+					}
+				/*
+				*declared_salary_cbd
+				*/
+				
+				/*
+				*eligible_income_cbd
+				*/			
+				$eligible_income_cbdMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","eligible_income_cbd")->first();
+					$eligible_income_cbd = '';
+					if($eligible_income_cbdMod != '')
+					{
+						$eligible_income_cbd = $eligible_income_cbdMod->attribute_value;
+					}
+				/*
+				*eligible_income_cbd
+				*/
+				
+				/*
+				*eligible_income_cbd
+				*/			
+				$aecb_statusMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","aecb_status")->first();
+					$aecb_status = '';
+					if($aecb_statusMod != '')
+					{
+						$aecb_status = $aecb_statusMod->attribute_value;
+					}
+				/*
+				*eligible_income_cbd
+				*/
+				
+				/*
+				*eligible_income_cbd
+				*/			
+				$channel_cbdMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","channel_cbd")->first();
+					$channel_cbd = '';
+					if($channel_cbdMod != '')
+					{
+						$channel_cbd = $channel_cbdMod->attribute_value;
+					}
+				/*
+				*eligible_income_cbd
+				*/
+				
+				/*
+				*status_cbd
+				*/			
+				$status_cbdMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","status_cbd")->first();
+					$status_cbd = '';
+					if($status_cbdMod != '')
+					{
+						$status_cbd = $status_cbdMod->attribute_value;
+					}
+				/*
+				*status_cbd
+				*/
+				
+				/*
+				*CBD_remark
+				*/			
+				$CBD_remarkMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","CBD_remark")->first();
+					$CBD_remark = '';
+					if($CBD_remarkMod != '')
+					{
+						$CBD_remark = $CBD_remarkMod->attribute_value;
+					}
+				/*
+				*CBD_remark
+				*/
+				
+				/*
+				*status_cbd
+				*/			
+				$SUCB_remarksMod = 	DepartmentFormChildEntry::where("parent_id",$mis->id)->where("attribute_code","SUCB_remarks")->first();
+					$SUCB_remarks = '';
+					if($SUCB_remarksMod != '')
+					{
+						$SUCB_remarks = $SUCB_remarksMod->attribute_value;
+					}
+				/*
+				*status_cbd
+				*/
+				$sheet->setCellValue('A'.$indexCounter, $mis->id)->getStyle('A'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('B'.$indexCounter, $mis->team)->getStyle('B'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('C'.$indexCounter, $agentName)->getStyle('C'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('D'.$indexCounter, $agentCode)->getStyle('D'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('E'.$indexCounter, $mis->application_date)->getStyle('E'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('F'.$indexCounter, $mis->ref_no)->getStyle('F'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('G'.$indexCounter, $mis->customer_name)->getStyle('G'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('H'.$indexCounter, $mis->customer_mobile)->getStyle('H'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('I'.$indexCounter, $employeerName)->getStyle('I'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('J'.$indexCounter, $cardType)->getStyle('J'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('K'.$indexCounter, $bureauS)->getStyle('K'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('L'.$indexCounter, $appS)->getStyle('L'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('M'.$indexCounter, $MOB)->getStyle('M'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('N'.$indexCounter, $declared_salary_cbd)->getStyle('N'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('O'.$indexCounter, $eligible_income_cbd)->getStyle('O'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('P'.$indexCounter, $aecb_status)->getStyle('P'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('Q'.$indexCounter, $channel_cbd)->getStyle('Q'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('R'.$indexCounter, $status_cbd)->getStyle('R'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('S'.$indexCounter, $CBD_remark)->getStyle('S'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				$sheet->setCellValue('T'.$indexCounter, $SUCB_remarks)->getStyle('T'.$indexCounter)->getAlignment()->setHorizontal('center')->setVertical('top');
+				
+				
+				$sn++;
+				
+			}
+			
+			
+			  for($col = 'A'; $col !== 'T'; $col++) {
+			   $sheet->getColumnDimension($col)->setAutoSize(true);
+			}
+			
+			$spreadsheet->getActiveSheet()->getStyle('A1:T1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('cbddf7');
+				
+				for($index=1;$index<=$indexCounter;$index++)
+				{
+					  foreach (range('A','T') as $col) {
+							$spreadsheet->getActiveSheet()->getStyle($col.$index)->getBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('000000'));
+					  }
+				}
+				$writer = new Xlsx($spreadsheet);
+				$writer->save(public_path('uploads/exportEmp/'.$filename));	
+				echo $filename;
+				exit;
+	}
+	
+	
+	public function updateFinalRemarksCBD(Request $request)
+	{
+	
+		 $postParameters = $request->input();
+		 $row_id = $postParameters['row_id'];
+	  
+	     $oldValue = DepartmentFormEntry::where("id",$row_id)->first()->remarks;
+	 
+	     $updateMod = DepartmentFormEntry::find($row_id);
+	     $updateMod->remarks = $postParameters['remarks'];
+		  if($updateMod->save())
+		  {
+			  $childData = DepartmentFormChildEntry::where("parent_id",$row_id)->where("attribute_code","remarks")->first();
+			  if($childData != '')
+			  {
+				  $updateChild =DepartmentFormChildEntry::find($childData->id);
+				   $updateChild->attribute_value = $postParameters['remarks'];
+				   $updateChild->save();
+				   
+			  }
+			  
+			  /**
+			  *log
+			  */
+			  $empsessionIdGet=$request->session()->get('EmployeeId');
+			  $logAddMod = new MashreqCardsLogs();
+			   $logAddMod->internal_mis_id = $row_id;
+			   $logAddMod->value = 'remarks';
+			   $logAddMod->old_value = $oldValue;
+			   $logAddMod->new_value = $postParameters['remarks'];
+			   $logAddMod->updated_by = $empsessionIdGet;
+			   $logAddMod->save();
+			  /**
+			  *log
+			  */
+		  }
+	echo "done";
+	exit;
+	}
+	
+	
+	public function viewPanelAsperFileSourceCBD($parent_id=NULL,$form_id=NULL)
+	{
+		$departmentFormDetails =   DepartmentForm::where("id",$form_id)->first();		  
+		  $DepartmentNameDetails =   Department::where("id",$departmentFormDetails->department_id)->first();
+		  $masterAttributeDetails = MasterAttribute::where("status",1)->orwhere("status",2)->orderBy("attribute_name","ASC")->get(); 
+		  $DepartmentDetails = Department::where("status",1)->orwhere("status",2)->orderBy('department_name','ASC')->get();
+		  $FormSectionDetails = FormSection::where("status",1)->orwhere("status",2)->orderBy("section","ASC")->get();
+
+		  $departmentFormAttributeGroup = DB::table('department_form_attribute')->where('form_id', $form_id)->groupby('form_section')->orderby('sort_order','ASC')->get(['form_section']);
+
+		  $departmentFormAttributeDetails = DB::table('department_form_attribute')->where('form_id', $form_id)->orderby('form_section','ASC')->orderby('sort_order','ASC')->get();
+
+		  $departmentFormParentDetails = DB::table('department_form_parent_entry')->where('id', $parent_id)->first();
+
+		  $departmentFormChildDetails = DB::table('department_form_child_entry')->where('parent_id', $parent_id)->where('form_id', $form_id)->get();
+
+		  $Employee_details = Employee_details::where("offline_status",1)->orderby('first_name','ASC')->get();
+        
+		  return view("Banks/CBD/viewPanelAsperFileSourceCBD",compact('departmentFormDetails','departmentFormAttributeDetails','DepartmentDetails','masterAttributeDetails','FormSectionDetails','departmentFormAttributeGroup','departmentFormParentDetails','departmentFormChildDetails','Employee_details','DepartmentNameDetails'));
+	}
+	
+	
+	public function CBDCardsSearchMaster(Request $request)
+	{
+		$requestParameters = $request->input();
+				
+				$start_date_application = '';
+				$end_date_application = '';
+				$team = '';
+			
+				$ref_no = '';
+				$emp_id = '';
+
+				if(@isset($requestParameters['ref_no']))
+				{
+					$ref_no = @$requestParameters['ref_no'];
+				}
+
+				if(isset($requestParameters['team']))
+				{
+					$team = @$requestParameters['team'];
+				}
+
+				
+				if(isset($requestParameters['emp_id']))
+				{
+					$emp_id = @$requestParameters['emp_id'];
+				}
+
+				if(isset($requestParameters['start_date']))
+				{
+					$start_date_application = @$requestParameters['start_date'];
+				}
+				if(isset($requestParameters['end_date']))
+				{
+					$end_date_application = @$requestParameters['end_date'];
+				}
+				
+				$request->session()->put('ref_no_CBD_master',$ref_no);
+				$request->session()->put('team_CBD_master',$team);
+				$request->session()->put('emp_id_CBD_master',$emp_id);
+				$request->session()->put('start_date_application_CBD_master',$start_date_application);
+				$request->session()->put('end_date_application_CBD_master',$end_date_application);
+				$request->session()->put('master_cbd_search_internal',2);
+				$request->session()->put('master_cbd_search_bank',2);
+				return redirect("cbdCardsManagement");
+		
+		
+	}
+	
+	public function resetCBDMaster(Request $request)
+	{
+				$request->session()->put('ref_no_CBD_master','');
+				$request->session()->put('team_CBD_master','');
+				$request->session()->put('emp_id_CBD_master','');
+				$request->session()->put('start_date_application_CBD_master','');
+				$request->session()->put('end_date_application_CBD_master','');
+				$request->session()->put('master_cbd_search_internal','');
+				$request->session()->put('master_cbd_search_bank','');
+				return redirect("cbdCardsManagement");
+	}
+	
+	public static function getChannel($parentId)
+	{
+		$data = DepartmentFormChildEntry::where("parent_id",$parentId)->where("attribute_code","channel_cbd")->first();
+		if($data != '')
+		{
+			return $data->attribute_value;
+		}
+		else
+		{
+			return "";
+		}
+	}
+	public static function getCardType($parentId)
+	{
+		$data = DepartmentFormChildEntry::where("parent_id",$parentId)->where("attribute_code","card_type_cbd")->first();
+		if($data != '')
+		{
+			return $data->attribute_value;
+		}
+		else
+		{
+			return "";
+		}
+	}
+	public static function getAECBStatus($parentId)
+	{
+		$data = DepartmentFormChildEntry::where("parent_id",$parentId)->where("attribute_code","aecb_status")->first();
+		if($data != '')
+		{
+			return $data->attribute_value;
+		}
+		else
+		{
+			return "";
+		}
+	}
+	
+}

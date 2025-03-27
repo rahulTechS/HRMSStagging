@@ -1,0 +1,555 @@
+<?php
+
+namespace App\Http\Controllers\Bridge;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Session;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Crypt;
+use App\User;
+use Illuminate\Support\Facades\Validator;
+use UserPermissionAuth;
+use App\Models\Employee\Employee_details;
+use App\Models\Employee\Employee_attribute;
+use App\Models\SEPayout\AgentPayout;
+use App\Models\SEPayout\AgentPayoutMidPoint;
+use App\Models\SEPayout\AgentPayoutMashreq;
+use App\Models\SEPayout\AgentPayoutDeem;
+use App\Models\SEPayout\PayoutTlMapping;
+use App\Models\Dashboard\DeemAttrition;
+use App\Models\EmpOffline\EmpOffline;
+use App\Models\Onboarding\DocumentCollectionDetails;
+use App\Models\Onboarding\DocumentCollectionAttributes;
+use App\Models\Onboarding\DocumentCollectionDetailsValues;
+
+
+
+class BridgePayoutEmployeeController extends Controller
+{
+  
+	public function analysisEmpBasicInfo()
+	{
+		/*
+		*ENBD Block
+		*Start Code
+		*/
+		
+		$collectionENBD = AgentPayout::orderBy("id","DESC")->first();
+		
+		if($collectionENBD != '')
+		{
+			$salesTime = $collectionENBD->sales_time;
+			$agentPayoutENBD = AgentPayout::where("sales_time",$salesTime)->get();
+			/* echo "<pre>";
+			print_r($agentPayoutENBD);
+			exit; */
+			foreach($agentPayoutENBD as $_agentPEnbd)
+			{
+				$empDetailsAsPerPayout = Employee_details::where("emp_id",trim($_agentPEnbd->employee_id))->first();
+				if($empDetailsAsPerPayout != '')
+				{
+					$EmpTLID = $empDetailsAsPerPayout->tl_id;
+					$PayoutTLID = $this->TLPayoutId($_agentPEnbd->tl_name);
+					/*
+					*department change log
+					*/
+					if($empDetailsAsPerPayout->dept_id != 9)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'Department';
+							$empUpdateMod->save();
+						}
+					elseif($EmpTLID != $PayoutTLID)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'TL';
+							$empUpdateMod->save();
+						}
+					else
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 2;
+							$empUpdateMod->mismatch_key = 'Matched';
+							$empUpdateMod->save();
+						}
+					
+					$updateModENBD = AgentPayout::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 2;
+					$updateModENBD->save();
+					/*
+					*department change log
+					*/
+				}
+				else
+				{
+					$updateModENBD = AgentPayout::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 3;
+					$updateModENBD->save();
+				}
+			}
+			
+		}
+		else
+		{
+			echo "<br/>";
+			echo "ENBD Payout Exist";
+		}
+		echo "done";
+		exit;
+					
+		/*
+		*ENBD Block
+		*End Code
+		*/
+	}
+	
+	protected function TLPayoutId($tlName)
+	{
+		$tlPayoutTL = PayoutTlMapping::where("tl_name",$tlName)->first();
+		if($tlPayoutTL != "")
+		{
+			return $tlPayoutTL->tl_id;
+		}
+		else
+		{
+			return "no";
+		}
+	}
+	
+	public function analysisEmpBasicInfoMashreq()
+	{
+		 echo "yes DONE";
+		exit;
+		/*
+		*Mashreq Block
+		*Start Code
+		*/
+		
+		$collectionENBD = AgentPayoutMashreq::orderBy("id","DESC")->first();
+		
+		if($collectionENBD != '')
+		{
+			/* echo "<pre>";
+			print_r($collectionENBD);
+			exit; */
+			$salesTime = $collectionENBD->end_sales_time;
+			$agentPayoutENBD = AgentPayoutMashreq::where("end_sales_time",$salesTime)->get();
+			/* echo "<pre>";
+			print_r($agentPayoutENBD);
+			exit; */
+			foreach($agentPayoutENBD as $_agentPEnbd)
+			{
+				$empDetailsAsPerPayout = Employee_details::where("emp_id",trim($_agentPEnbd->employee_id))->first();
+				if($empDetailsAsPerPayout != '')
+				{
+					$EmpTLID = $empDetailsAsPerPayout->tl_id;
+					$PayoutTLID = $this->TLPayoutId($_agentPEnbd->tl_name);
+					/*
+					*department change log
+					*/
+					if($empDetailsAsPerPayout->dept_id != 36)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'Department';
+							$empUpdateMod->save();
+						}
+					elseif($EmpTLID != $PayoutTLID)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'TL';
+							$empUpdateMod->save();
+						}
+					else
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 2;
+							$empUpdateMod->mismatch_key = 'Matched';
+							$empUpdateMod->save();
+						}
+					
+					$updateModENBD = AgentPayoutMashreq::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 2;
+					$updateModENBD->save();
+					/*
+					*department change log
+					*/
+				}
+				else
+				{
+					$updateModENBD = AgentPayoutMashreq::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 3;
+					$updateModENBD->save();
+				}
+			}
+			
+		}
+		else
+		{
+			echo "<br/>";
+			echo "Mashreq Payout Exist";
+		}
+		echo "done";
+		exit;
+					
+		/*
+		*Mashreq Block
+		*End Code
+		*/
+	}
+	
+	
+	
+	
+	public function analysisEmpBasicInfoDeem()
+	{
+		 echo "yes DONE-Deem";
+		exit;
+		/*
+		*Mashreq Block
+		*Start Code
+		*/
+		
+		$collectionENBD = AgentPayoutDeem::orderBy("id","DESC")->first();
+		
+		if($collectionENBD != '')
+		{
+			/* echo "<pre>";
+			print_r($collectionENBD);
+			exit; */
+			$salesTime = $collectionENBD->end_sales_time;
+			$agentPayoutENBD = AgentPayoutDeem::where("end_sales_time",$salesTime)->get();
+			/* echo "<pre>";
+			print_r($agentPayoutENBD);
+			exit; */
+			foreach($agentPayoutENBD as $_agentPEnbd)
+			{
+				$empDetailsAsPerPayout = Employee_details::where("emp_id",trim($_agentPEnbd->employee_id))->first();
+				if($empDetailsAsPerPayout != '')
+				{
+					$EmpTLID = $empDetailsAsPerPayout->tl_id;
+					$PayoutTLID = $this->TLPayoutId($_agentPEnbd->tl_name);
+					/*
+					*department change log
+					*/
+					if($empDetailsAsPerPayout->dept_id != 36)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'Department';
+							$empUpdateMod->save();
+						}
+					elseif($EmpTLID != $PayoutTLID)
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 4;
+							$empUpdateMod->mismatch_key = 'TL';
+							$empUpdateMod->save();
+						}
+					else
+						{
+							$empUpdateMod =	Employee_details::find($empDetailsAsPerPayout->id);
+							$empUpdateMod->emp_check_payout_status = 2;
+							$empUpdateMod->mismatch_key = 'Matched';
+							$empUpdateMod->save();
+						}
+					
+					$updateModENBD = AgentPayoutMashreq::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 2;
+					$updateModENBD->save();
+					/*
+					*department change log
+					*/
+				}
+				else
+				{
+					$updateModENBD = AgentPayoutMashreq::find($_agentPEnbd->id);
+					$updateModENBD->emp_payout_status = 3;
+					$updateModENBD->save();
+				}
+			}
+			
+		}
+		else
+		{
+			echo "<br/>";
+			echo "Mashreq Payout Exist";
+		}
+		echo "done";
+		exit;
+					
+		/*
+		*Mashreq Block
+		*End Code
+		*/
+	}
+	
+	
+	public function analysisUpdateTL()
+	{
+		/*
+		*for ENBD TL
+		*/
+		$empModel = Employee_details::where("emp_check_payout_status",4)->where("mismatch_key","TL")->where("dept_id",9)->get();
+		
+		foreach($empModel as $_emp)
+		{
+			$emp_id = $_emp->emp_id;
+			$agentModel = AgentPayout::where("employee_id",$emp_id)->orderBy("id","DESC")->first();
+			
+			$agentTLName = $agentModel->tl_name;
+			$tlId = PayoutTlMapping::where("tl_name",$agentTLName)->first()->tl_id;
+		
+			/*
+			*TL Update
+			*/
+			$empModUpdate = Employee_details::find($_emp->id);
+			$empModUpdate->tl_id = $tlId;
+			$empModUpdate->emp_check_payout_status = 5;
+			$empModUpdate->save();
+			/*
+			*TL Update
+			*/
+			
+		}
+		/*
+		*for ENBD TL
+		*/
+		
+		
+		/*
+		*for Mashreq TL
+		*/
+		$empModelM = Employee_details::where("emp_check_payout_status",4)->where("mismatch_key","TL")->where("dept_id",36)->get();
+		
+		foreach($empModelM as $_empM)
+		{
+			$emp_id = $_empM->emp_id;
+			$agentModel = AgentPayoutMashreq::where("employee_id",$emp_id)->orderBy("id","DESC")->first();
+			
+			$agentTLName = $agentModel->tl_name;
+			$tlId = PayoutTlMapping::where("tl_name",$agentTLName)->first()->tl_id;
+		
+			/*
+			*TL Update
+			*/
+			$empModUpdate = Employee_details::find($_empM->id);
+			$empModUpdate->tl_id = $tlId;
+			$empModUpdate->emp_check_payout_status = 5;
+			$empModUpdate->save();
+			/*
+			*TL Update
+			*/
+			
+		}
+		/*
+		*for Mashreq TL
+		*/
+		
+		echo "all done";
+		exit;
+	}
+	
+	public function UpdateOffBoardEMPData(Request $request){
+		$deemdata=DeemAttrition::where("status_attrition",1)->get();
+		if(count($deemdata)>0){
+			foreach($deemdata as $_deemdata){
+				$empId=$_deemdata->emp_id;
+				$empData = Employee_details::where("emp_id",$empId)->first();
+				if($empData!=''){
+						if($empData->offline_status==2){
+							$deemModUpdate = DeemAttrition::find($_deemdata->id);
+							$deemModUpdate->status_attrition =3;
+							$deemModUpdate->save();
+						}
+						elseif($empData->offline_status==1){
+							 $docId=$empId;
+							 $onboarding_date=date("Y-m-d");
+							 
+							 $offlineObj=new EmpOffline();
+							 $offlineObj->emp_id=$empData->emp_id;			 
+							 $offlineObj->emp_name=$empData->first_name.' '.$empData->middle_name. ' '.$empData->last_name;
+										 
+							 $offlineObj->designation=$empData->designation_by_doc_collection;
+							 $offlineObj->department=$empData->dept_id;
+							 $empattributesMod = Employee_attribute::where('emp_id',$docId)->where('attribute_code','CONTACT_NUMBER')->first();
+							 if($empattributesMod!=''){
+								$offlineObj->mobile_no=$empattributesMod->attribute_values;
+							 }else{
+								 $offlineObj->mobile_no='';
+							 }
+							 $work_location = Employee_attribute::where('emp_id',$docId)->where('attribute_code','work_location')->first();
+							 if($work_location!=''){
+								 $offlineObj->location=$work_location->attribute_values;
+							 }
+							 else{
+								 $offlineObj->location='';
+							 }
+							 $DOJ= Employee_attribute::where('emp_id',$docId)->where('attribute_code','DOJ')->first();
+							 if($DOJ!=''){
+								 $offlineObj->doj=$DOJ->attribute_values;
+							 }
+							 $documentAttributesDetails =DocumentCollectionDetails::where("id",$empData->document_collection_id)->first();
+							 //print_r($documentAttributesDetails);exit;
+							 
+							 if($documentAttributesDetails!=''){
+								$offlineObj->email=$documentAttributesDetails->email;
+								$offlineObj->recruiter_name=$documentAttributesDetails->recruiter_name;
+								$offlineObj->job_opening=$documentAttributesDetails->job_opening;
+								$offlineObj->interview_id=$documentAttributesDetails->interview_id;
+								$offlineObj->document_collection_id=$documentAttributesDetails->id;
+							 }
+							 $offlineObj->onboarding_date=$onboarding_date;
+							 $offlineObj->condition_leaving=1;
+							 $offlineObj->created_by=$request->session()->get('EmployeeId');
+							 $offlineObj->save();
+							 $updateOBJ = Employee_details::where("emp_id",$docId)->first();
+							 $updateOBJ->offline_status=2;
+							 
+								$updateOBJ->save();
+								
+								$deemModUpdate = DeemAttrition::find($_deemdata->id);
+								$deemModUpdate->status_attrition =2;
+								$deemModUpdate->save();
+								
+							 
+						}
+					
+				}
+			}
+			
+		}
+		echo "all done";
+		exit;
+	}
+		
+public function DNCRAPI()
+{
+	
+$curl = curl_init();
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => 'https://test-developerhub.etisalat.ae:9443/test-organization/resourceapi/customer/v1.0.0/getDNCRStatus',
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => '',
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 0,
+  CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => 'POST',
+  CURLOPT_POSTFIELDS =>'{    "accountList": {
+
+        "accountNumber": [
+
+                "0502622680",
+
+            "6478437438",
+
+            "0501549263",
+
+            "0543934762"
+
+        ]    }    }',
+  CURLOPT_HTTPHEADER => array(
+    'clientId: e736d3dc5a449f705b729b6fe7629acd',
+    'X-TIB-TransactionID: TEST12345',
+    'X-TIB-RequestedSystem: Smartunion',
+    'Content-Type: text/plain',
+	 'authorization: 9d9b67a420e54754dde3a178b00a4433'
+  ),
+));
+
+$response = curl_exec($curl);
+$info = curl_getinfo($curl);
+curl_close($curl);
+echo $response;
+echo "<br/>";
+/* echo "<pre>";
+print_r( $info); */
+exit;
+}		
+
+
+
+
+public function DNCRAPIToken()
+{
+	$curl = curl_init();
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => 'https://test-developerhub.etisalat.ae:9443/test-organization/resourceapi/confidential/oauth2/token',
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => '',
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 0,
+  CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => 'POST',
+  CURLOPT_POSTFIELDS => 'grant_type=client_credentials&scope=apioauth&client_id=e736d3dc5a449f705b729b6fe7629acd&client_secret=9d9b67a420e54754dde3a178b00a4433',
+  CURLOPT_HTTPHEADER => array(
+    'Content-Type: application/x-www-form-urlencoded'
+  ),
+));
+
+ $response = curl_exec($curl);
+/* exit; */
+curl_close($curl);
+$tokenResponse =  json_decode($response);
+// echo $response;exit; 
+$accessToken = $tokenResponse->access_token;
+
+/*
+*getting number DND
+*/
+$curl = curl_init();
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => 'https://test-developerhub.etisalat.ae:9443/test-organization/resourceapi/customer/v1.0.0/getDNCRStatus',
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => '',
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 0,
+  CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => 'POST',
+  CURLOPT_POSTFIELDS =>'{    "accountList": {
+
+        "accountNumber": [
+
+                "0502622680",
+
+            "6478437438",
+
+            "0501549263",
+
+            "0543934762"
+
+        ]    }    }',
+  CURLOPT_HTTPHEADER => array(
+    'clientId: e736d3dc5a449f705b729b6fe7629acd',
+    'X-TIB-TransactionID: TEST12345',
+    'X-TIB-RequestedSystem: Smartunion',
+    'Content-Type: application/json',
+	'authorization: Bearer '.$accessToken,
+  ),
+));
+
+$response = curl_exec($curl);
+
+curl_close($curl);
+echo $response;
+
+
+/* echo "<pre>";
+print_r( $info); */
+exit;
+/*
+*getting number DND
+*/
+}	
+			
+}
